@@ -1,0 +1,51 @@
+# Dependencies
+node_modules/
+.pnp.*
+
+# Environment and local secrets
+.env
+.env.*
+!.env.example
+.envrc
+.npmrc
+*.pem
+*.key
+*.cert
+
+# Build outputs
+build/
+dist/
+.next/
+out/
+
+# Runtime files
+logs/
+*.log
+community-hero-backend/uploads/
+
+# Test and tool output
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+cypress/videos/
+cypress/screenshots/
+.eslintcache
+*.tsbuildinfo
+
+# Package manager noise
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.sw?
+
+# Deployment platform local metadata
+.vercel/
+.netlify/
