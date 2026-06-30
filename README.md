@@ -2,6 +2,13 @@
 
 Community Hero is an AI-powered civic issue management platform for gated communities, residential societies, campuses, and smart neighborhoods. It combines Google Gemini, Google embeddings, Google Maps geofencing, MongoDB, role-based workflows, and community verification so residents can report, validate, resolve, and learn from local problems.
 
+## Submission Links
+
+- Live application: https://chero-r115-20260630.web.app
+- Alternate Firebase URL: https://chero-r115-20260630.firebaseapp.com
+- GitHub repository: https://github.com/ritvikraj115/Community-Hero
+- Project description Google Doc: https://docs.google.com/document/d/1dN9K4oIP3FAW-_EVGlaOBGAsq31u2Tu_1LMz4uRc-3Y/edit
+
 ## What It Does
 
 - Admins create one geofenced community.
