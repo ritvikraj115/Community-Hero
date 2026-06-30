@@ -53,11 +53,25 @@ jobs:
         working-directory: community-hero-frontend
         run: npm run build
 
+      - name: Prepare Firebase credentials
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        shell: bash
+        run: |
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/firebase-service-account.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-service-account.json" >> "$GITHUB_ENV"
+
       - name: Deploy to Firebase Hosting
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          projectId: ${{ env.FIREBASE_PROJECT_ID }}
-          channelId: live
-          entryPoint: .
+        shell: bash
+        run: |
+          set +e
+          output="$(npx firebase-tools@15.22.3 deploy --only hosting --project "$FIREBASE_PROJECT_ID" --json 2>&1)"
+          status=$?
+          printf '%s\n' "$output"
+
+          if [ "$status" -ne 0 ] && printf '%s' "$output" | grep -q "current active version"; then
+            echo "Firebase Hosting reports this version is already active; treating deploy as successful."
+            exit 0
+          fi
+
+          exit "$status"
