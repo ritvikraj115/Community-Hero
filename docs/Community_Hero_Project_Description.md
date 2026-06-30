@@ -79,7 +79,7 @@ After approval, an issue becomes open for action. A resident can claim responsib
 
 Once eligible residents verify the resolution, the issue moves out of active issues and becomes part of the community's history and knowledge base.
 
-## Core Differentiators and Features
+## Key Features and Core Differentiators
 
 - Boundary-aware community setup using either radius-based geofencing or manually marked polygon borders on Google Maps.
 - GPS-verified resident onboarding so community membership is tied to physical presence inside the selected society.
@@ -165,7 +165,7 @@ Firebase Hosting:
 - Rewrites all frontend routes to `index.html` for smooth SPA navigation.
 - Integrates with GitHub Actions for continuous deployment.
 
-## Technology Stack
+## Technologies Used
 
 Frontend:
 
