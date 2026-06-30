@@ -8,13 +8,9 @@ Selected problem statement: Problem Statement 2 - Community Hero: Hyperlocal Pro
 
 GitHub repository: https://github.com/ritvikraj115/Community-Hero
 
-Current live demo deployment: https://community-hero-frontend-i725.onrender.com
+Live application: https://chero-r115-20260630.web.app
 
-## Google Cloud Deployment Note
-
-The hackathon guideline asks for a Google Cloud hosted deployment. I attempted to complete the Google Cloud deployment, but Google Cloud billing activation is currently blocked on my side. Autopay is already set up on my phone, I tried different Google accounts, and I also tried adding a card manually; however, the billing setup is still not reflecting correctly in Google Cloud Console.
-
-I have already mailed the organizers about this issue from `ritvikraj.ipl@gmail.com`. Until the Google Cloud billing issue is resolved, I request the evaluators to please consider the Render deployment as the live functional demo and judge the project unbiasedly based on the working product, source code, architecture, and Google technology integrations. The application is already structured to be deployed on Google Cloud once billing access becomes available.
+Alternate Firebase Hosting URL: https://chero-r115-20260630.firebaseapp.com
 
 ## Solution Overview
 
@@ -24,25 +20,38 @@ The product is built around the complete lifecycle of a community issue. An admi
 
 The platform keeps the workflow fair. Issue creators cannot approve their own reports, and solvers cannot verify their own fixes. More than one resident can collaborate on the same issue, admins can upload direct fixes, and every resolution requires useful proof and a description so the community builds future knowledge instead of only closing tickets.
 
+## Current Deployment Setup
+
+The live evaluator-facing application is deployed on Firebase Hosting:
+
+- Primary URL: https://chero-r115-20260630.web.app
+- Alternate URL: https://chero-r115-20260630.firebaseapp.com
+- Firebase project ID: `chero-r115-20260630`
+- Hosting site: `chero-r115-20260630`
+
+The React production build is deployed as a static single page application. Firebase Hosting rewrites all app routes to `index.html`, so direct links, refresh, browser back, and routes such as `/login`, `/dashboard`, `/issues`, and `/create-issue` work correctly.
+
+The GitHub repository is connected to Firebase Hosting through GitHub Actions. On every push to `main`, the workflow builds the frontend and deploys the latest production bundle to Firebase Hosting. Required deployment secrets and variables are configured in the repository.
+
 ## Product Workflow
 
 ### Community Creation
 
-An admin registers, logs in, opens community setup, and locks the current location. The admin can then choose Radius mode or Polygon mode. Radius mode stores a center point and a radius in meters. Polygon mode stores a manually marked GeoJSON boundary on Google Maps. The backend saves this geofence and attaches the admin to the newly created society.
+An admin registers, logs in, opens community setup, and locks the current location. The admin can then choose Radius mode or Polygon mode. Radius mode stores a center point and a radius in meters. Polygon mode stores a manually marked GeoJSON boundary on Google Maps. The system saves this geofence and attaches the admin to the newly created society.
 
 ### Resident Onboarding
 
-A resident registers without being attached to any community. The resident enters the Society ID shared by the admin and verifies current GPS location. The backend checks that GPS point against the selected society boundary. If the resident is physically inside the community, the join request becomes pending. The admin can then review and approve the resident.
+A resident registers without being attached to any community. The resident enters the Society ID shared by the admin and verifies current GPS location. The system checks that GPS point against the selected society boundary. If the resident is physically inside the community, the join request becomes pending. The admin can then review and approve the resident.
 
 ### Login Geofencing
 
-Approved residents are checked against their assigned community during login. The backend first identifies the resident from email and password, then verifies the submitted GPS location against that resident's society boundary. Resident login succeeds only when the location is inside the community geofence.
+Approved residents are checked against their assigned community during login. The system first identifies the resident from email and password, then verifies the submitted GPS location against that resident's society boundary. Resident login succeeds only when the location is inside the community geofence.
 
 Admin login is intentionally smoother. Admins are location-verified during community setup and when submitting or resolving on-site issue work, but they are not forced through the resident login geofence every time.
 
 ### Issue Reporting
 
-An approved resident creates an issue by uploading an image, adding a title and description, and locking GPS. The backend verifies that the issue location is inside the resident's society boundary. Gemini then evaluates the report. If Gemini is highly confident that the image is spam, unrelated, or does not show a real civic issue, the report is rejected before community voting. If Gemini is uncertain, the system avoids making a hard decision and allows the community verification flow to continue.
+An approved resident creates an issue by uploading an image, adding a title and description, and locking GPS. The system verifies that the issue location is inside the resident's society boundary. Gemini then evaluates the report. If Gemini is highly confident that the image is spam, unrelated, or does not show a real civic issue, the report is rejected before community voting. If Gemini is uncertain, the system avoids making a hard decision and allows the community verification flow to continue.
 
 ### Duplicate And History Intelligence
 
@@ -62,7 +71,7 @@ Once eligible residents verify the resolution, the issue moves out of active iss
 - Google Maps based community map with society boundary, issue markers, and maintenance markers.
 - Resident join requests with GPS verification against the selected society.
 - Identity-bound resident login geofence.
-- Issue creation with backend geofence enforcement.
+- Issue creation with geofence enforcement.
 - Image-based issue reporting with JPG, JPEG, PNG, WEBP, HEIC, and HEIF support.
 - Gemini-powered image and text analysis for category, severity, root cause, tags, risk, and summary.
 - AI safety gates for spam reports, unrelated images, invalid issue proof, invalid resolution proof, and issue-still-present cases.
@@ -76,11 +85,11 @@ Once eligible residents verify the resolution, the issue moves out of active iss
 - Gamification with points, leaderboard, achievements, and contribution history.
 - Dashboard panels for analytics, health score, community knowledge, history, feed, weather, and maintenance.
 - Maintenance board for scheduled and proactive work.
-- Production-ready environment configuration for frontend and backend deployment.
+- Production-ready Firebase Hosting deployment with GitHub Actions automation.
 
 ## Architecture
 
-Community Hero uses a React single page frontend and a Node.js Express backend.
+Community Hero uses a React single page frontend with an API-backed workflow and MongoDB persistence.
 
 Frontend:
 
@@ -90,12 +99,12 @@ Frontend:
 - Google Maps JavaScript API through `@react-google-maps/api`.
 - Dedicated screens for admin setup, dashboard, issue creation, issue details, maintenance, leaderboard, and profile views.
 
-Backend:
+API and data layer:
 
-- Node.js and Express REST API.
+- Express REST API for authentication, societies, issues, voting, maintenance, notifications, reports, and analytics.
 - MongoDB with Mongoose models.
 - JWT authentication and role checks.
-- Backend geofence middleware for society-bound workflows.
+- Geofence middleware for society-bound workflows.
 - Multer upload handling for common image formats.
 - Gemini services for issue analysis and resolution verification.
 - Gemini embeddings for semantic duplicate detection and historical issue retrieval.
@@ -138,11 +147,12 @@ Google Maps JavaScript API:
 - Powers manual polygon boundary marking.
 - Displays issue and maintenance markers on the community dashboard.
 
-Google Cloud:
+Firebase Hosting:
 
-- The codebase is deployment-ready for Google Cloud once billing access is available.
-- Recommended Google Cloud deployment shape is a static frontend deployment plus backend API on Cloud Run.
-- Environment variables are already separated for frontend URL, backend URL, CORS origins, JWT secret, MongoDB URI, Google API keys, Gemini model names, embedding dimensions, and threshold tuning.
+- Hosts the live React frontend.
+- Serves the production static build.
+- Rewrites all frontend routes to `index.html` for smooth SPA navigation.
+- Integrates with GitHub Actions for continuous deployment.
 
 ## Technology Stack
 
@@ -154,8 +164,10 @@ Frontend:
 - CSS
 - Google Maps JavaScript API
 - `@react-google-maps/api`
+- Firebase Hosting
+- GitHub Actions
 
-Backend:
+API, AI, and data:
 
 - Node.js
 - Express
@@ -164,26 +176,12 @@ Backend:
 - JWT authentication
 - Bcrypt password hashing
 - Multer image uploads
-- CORS
-- Node cron jobs
-
-AI and data:
-
 - Google Gemini API through `@google/generative-ai`
 - Gemini multimodal image reasoning
 - Gemini embeddings
 - MongoDB geospatial indexes
 - MongoDB vector-search-compatible design with fallback cosine similarity
 - Hybrid duplicate detection across semantic, text, image, and spatial signals
-
-Deployment and operations:
-
-- Environment-based configuration.
-- Static frontend build.
-- Express API service.
-- Health check endpoint.
-- Optional keep-alive flow for free-tier backend hosting.
-- Render deployment currently used as the public live demo because Google Cloud billing activation is blocked.
 
 ## Evaluation Alignment
 
@@ -201,7 +199,7 @@ The platform combines geofencing, AI image reasoning, semantic issue memory, dup
 
 Usage of Google Technologies:
 
-Gemini, Google embeddings, and Google Maps are core to the product experience. They are used for image understanding, semantic retrieval, duplicate intelligence, geofencing UI, and community visualization.
+Gemini, Google embeddings, Google Maps, and Firebase Hosting are core to the product experience. They are used for image understanding, semantic retrieval, duplicate intelligence, geofencing UI, community visualization, and live deployment.
 
 Product Experience and Design:
 
@@ -209,7 +207,7 @@ The app has role-specific dashboards, clear community setup, smooth resident onb
 
 Technical Implementation:
 
-The backend enforces identity, role, society membership, geofence checks, upload validation, AI gates, duplicate logic, and workflow transitions. The frontend is configured for production static hosting and environment-based API URLs.
+The system enforces identity, role, society membership, geofence checks, upload validation, AI gates, duplicate logic, and workflow transitions. The frontend is deployed on Firebase Hosting with production static routing and GitHub Actions automation.
 
 Completeness and Usability:
 
@@ -217,7 +215,7 @@ The product supports the full end-to-end journey: create a community, onboard re
 
 ## Evaluator Walkthrough
 
-1. Open the deployed frontend.
+1. Open the deployed frontend: https://chero-r115-20260630.web.app
 2. Register an admin account using an evaluator-controlled email.
 3. Create a community at the evaluator's current location.
 4. Choose Radius mode with a practical radius such as 150 to 250 meters, or mark a polygon boundary around the current location.
@@ -260,22 +258,9 @@ Representative frontend files:
 - `community-hero-frontend/src/components/DashboardWidgets.js`
 - `community-hero-frontend/src/utils/location.js`
 - `community-hero-frontend/src/utils/googleMaps.js`
-
-Representative backend files:
-
-- `community-hero-backend/server.js`
-- `community-hero-backend/routes/apiRoutes.js`
-- `community-hero-backend/controllers/authController.js`
-- `community-hero-backend/controllers/societyController.js`
-- `community-hero-backend/controllers/issueController.js`
-- `community-hero-backend/middleware/auth.js`
-- `community-hero-backend/middleware/geoGuard.js`
-- `community-hero-backend/utils/geofenceService.js`
-- `community-hero-backend/utils/googleEmbeddingService.js`
-- `community-hero-backend/utils/hybridDuplicateDetector.js`
-- `community-hero-backend/utils/imageComparisonService.js`
-- `community-hero-backend/utils/knowledgeBaseService.js`
+- `firebase.json`
+- `.github/workflows/firebase-hosting-live.yml`
 
 ## Closing Statement
 
-Community Hero is designed as a complete hyperlocal problem-solving platform for real communities. It uses Google AI and Google Maps to make civic issue reporting intelligent, location-aware, collaborative, and transparent. The system reduces duplicate effort, verifies problems fairly, supports multi-person resolution, and preserves historical knowledge so communities become better at solving recurring problems over time.
+Community Hero is designed as a complete hyperlocal problem-solving platform for real communities. It uses Google AI, Google Maps, and Firebase Hosting to make civic issue reporting intelligent, location-aware, collaborative, transparent, and easy to evaluate from a live frontend. The system reduces duplicate effort, verifies problems fairly, supports multi-person resolution, and preserves historical knowledge so communities become better at solving recurring problems over time.
