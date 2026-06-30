@@ -19,6 +19,12 @@ const api = axios.create({
   timeout: 30000
 });
 
+const redirectToLogin = () => {
+  if (window.location.hash !== '#/login') {
+    window.location.hash = '/login';
+  }
+};
+
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
 
@@ -35,9 +41,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.clear();
       window.dispatchEvent(new Event('auth-updated'));
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
-      }
+      redirectToLogin();
     }
 
     return Promise.reject(error);

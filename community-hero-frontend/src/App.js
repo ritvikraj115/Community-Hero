@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import Login from './components/Login';
 import Register from './components/Register';
 import AdminSetup from './components/AdminSetup';
@@ -54,6 +54,7 @@ const ProtectedRoute = ({ children, user, allowedRoles, requireApproval }) => {
 
 function AppShell() {
   const [authUser, setAuthUser] = useState(readStoredUser());
+  const navigate = useNavigate();
 
   useEffect(() => {
     const syncAuthUser = () => {
@@ -73,7 +74,7 @@ function AppShell() {
   const handleLogout = () => {
     localStorage.clear();
     setAuthUser(null);
-    window.location.href = '/login';
+    navigate('/login', { replace: true });
   };
 
   return (
