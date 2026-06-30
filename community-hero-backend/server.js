@@ -19,12 +19,24 @@ const parseCsvEnv = (value = "") => value
   .map((item) => normalizeOrigin(item.trim()))
   .filter(Boolean);
 
-const allowedOrigins = parseCsvEnv(
-  process.env.CORS_ORIGINS ||
-  process.env.FRONTEND_URL ||
-  process.env.CLIENT_URL ||
-  ""
+const firebaseProjectIds = parseCsvEnv(
+  process.env.FIREBASE_PROJECT_ID ||
+  process.env.FIREBASE_PROJECT_IDS ||
+  "chero-r115-20260630"
 );
+
+const firebaseHostingOrigins = firebaseProjectIds.flatMap((projectId) => [
+  `https://${projectId}.web.app`,
+  `https://${projectId}.firebaseapp.com`
+]);
+
+const allowedOrigins = Array.from(new Set([
+  ...parseCsvEnv(process.env.CORS_ORIGINS),
+  ...parseCsvEnv(process.env.FRONTEND_URL),
+  ...parseCsvEnv(process.env.CLIENT_URL),
+  ...parseCsvEnv(process.env.FIREBASE_HOSTING_ORIGINS),
+  ...firebaseHostingOrigins
+]));
 
 const isProduction = process.env.NODE_ENV === "production";
 
