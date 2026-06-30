@@ -22,6 +22,7 @@ jobs:
       REACT_APP_BACKEND_URL: https://community-hero-sfsj.onrender.com
       REACT_APP_API_BASE: https://community-hero-sfsj.onrender.com/api
       REACT_APP_GOOGLE_MAPS_API_KEY: ${{ secrets.REACT_APP_GOOGLE_MAPS_API_KEY }}
+      FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID || 'chero-r115-20260630' }}
 
     steps:
       - name: Checkout
@@ -29,7 +30,6 @@ jobs:
 
       - name: Validate deployment configuration
         env:
-          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           REACT_APP_GOOGLE_MAPS_API_KEY: ${{ secrets.REACT_APP_GOOGLE_MAPS_API_KEY }}
         shell: bash
@@ -58,6 +58,6 @@ jobs:
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          projectId: ${{ vars.FIREBASE_PROJECT_ID }}
+          projectId: ${{ env.FIREBASE_PROJECT_ID }}
           channelId: live
           entryPoint: .
