@@ -1,9 +1,9 @@
 const DEFAULT_OPTIONS = {
   desiredAccuracyMeters: 35,
-  maxAcceptableAccuracyMeters: 150,
+  maxAcceptableAccuracyMeters: 220,
   minSamples: 2,
-  settleMs: 7000,
-  timeoutMs: 18000
+  settleMs: 9500,
+  timeoutMs: 24000
 };
 
 const normalizePosition = (position) => ({
@@ -16,6 +16,17 @@ const normalizePosition = (position) => ({
 export const formatAccuracy = (accuracy) => {
   const parsed = Number(accuracy);
   return Number.isFinite(parsed) ? ` +/- ${Math.round(parsed)}m` : '';
+};
+
+const getGeolocationPermissionState = async () => {
+  if (!navigator.permissions?.query) return 'unknown';
+
+  try {
+    const permission = await navigator.permissions.query({ name: 'geolocation' });
+    return permission.state || 'unknown';
+  } catch {
+    return 'unknown';
+  }
 };
 
 export const getAccurateLocation = (options = {}) => new Promise((resolve, reject) => {
@@ -35,6 +46,8 @@ export const getAccurateLocation = (options = {}) => new Promise((resolve, rejec
   let watchId = null;
   let settleTimer = null;
   let timeoutTimer = null;
+  let permissionTimer = null;
+  let lastError = null;
 
   const cleanup = () => {
     if (watchId !== null) {
@@ -43,6 +56,7 @@ export const getAccurateLocation = (options = {}) => new Promise((resolve, rejec
     }
     if (settleTimer) clearTimeout(settleTimer);
     if (timeoutTimer) clearTimeout(timeoutTimer);
+    if (permissionTimer) clearTimeout(permissionTimer);
   };
 
   const finish = (callback, value) => {
@@ -72,6 +86,7 @@ export const getAccurateLocation = (options = {}) => new Promise((resolve, rejec
   const handlePosition = (position) => {
     const current = normalizePosition(position);
     samples += 1;
+    lastError = null;
 
     if (
       !best ||
@@ -95,25 +110,54 @@ export const getAccurateLocation = (options = {}) => new Promise((resolve, rejec
   };
 
   const handleError = (error) => {
+    lastError = error;
     if (best) return;
 
-    const message = error?.code === 1
-      ? 'Please enable location permissions.'
-      : 'Unable to acquire GPS location. Please retry.';
+    if (error?.code !== 1) {
+      return;
+    }
 
-    finish(reject, new Error(message));
+    permissionTimer = setTimeout(async () => {
+      if (settled || best) return;
+
+      const permissionState = await getGeolocationPermissionState();
+      if (permissionState === 'denied' || permissionState === 'unknown') {
+        finish(reject, new Error('Please enable location permissions.'));
+      }
+    }, 700);
   };
+
+  const geoOptions = {
+    enableHighAccuracy: true,
+    maximumAge: 0,
+    timeout: settings.timeoutMs
+  };
+
+  navigator.geolocation.getCurrentPosition(
+    handlePosition,
+    handleError,
+    geoOptions
+  );
 
   watchId = navigator.geolocation.watchPosition(
     handlePosition,
     handleError,
-    {
-      enableHighAccuracy: true,
-      maximumAge: 0,
-      timeout: settings.timeoutMs
-    }
+    geoOptions
   );
 
   settleTimer = setTimeout(acceptBestOrReject, settings.settleMs);
-  timeoutTimer = setTimeout(acceptBestOrReject, settings.timeoutMs + 1000);
+  timeoutTimer = setTimeout(async () => {
+    if (!best && lastError?.code === 1) {
+      const permissionState = await getGeolocationPermissionState();
+      if (permissionState === 'denied' || permissionState === 'unknown') {
+        finish(reject, new Error('Please enable location permissions.'));
+        return;
+      }
+
+      acceptBestOrReject();
+      return;
+    }
+
+    acceptBestOrReject();
+  }, settings.timeoutMs + 1000);
 });

@@ -171,7 +171,12 @@ const CreateIssue = () => {
 
           <div>
             <label style={{ display: 'block', marginBottom: 8, fontWeight: 700 }}>Take or Upload Photo</label>
-            <input type="file" accept="image/*" capture="environment" onChange={(e) => handleImageChange(e.target.files?.[0])} />
+            <input
+              type="file"
+              accept="image/jpeg,image/jpg,image/png,image/webp,image/heic,image/heif"
+              capture="environment"
+              onChange={(e) => handleImageChange(e.target.files?.[0])}
+            />
             {imagePreview && (
               <img src={imagePreview} alt="Issue preview" style={{ width: '100%', maxHeight: 320, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)', marginTop: 12 }} />
             )}

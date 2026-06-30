@@ -257,6 +257,7 @@ function AppShell() {
           />
 
           <Route path="/" element={<Navigate to={authUser ? '/dashboard' : '/login'} replace />} />
+          <Route path="*" element={<Navigate to={authUser ? '/dashboard' : '/login'} replace />} />
         </Routes>
       </main>
     </div>
