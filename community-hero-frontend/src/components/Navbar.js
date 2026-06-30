@@ -54,7 +54,7 @@ const Navbar = ({ user, onLogout }) => {
     <header className="topbar">
       <div className="topbar-shell">
         <Link to="/dashboard" className="brand-lockup" aria-label="Community Hero Dashboard">
-          <span className="brand-mark">CH</span>
+          <img className="brand-mark" src={`${process.env.PUBLIC_URL}/logo192.png`} alt="" aria-hidden="true" />
           <span>
             <strong>Community Hero</strong>
             <small>{hasCommunity ? 'Civic Intelligence' : 'Setup Required'}</small>
