@@ -1,0 +1,63 @@
+name: Deploy Frontend to Firebase Hosting
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      CI: false
+      GENERATE_SOURCEMAP: false
+      REACT_APP_BACKEND_URL: https://community-hero-sfsj.onrender.com
+      REACT_APP_API_BASE: https://community-hero-sfsj.onrender.com/api
+      REACT_APP_GOOGLE_MAPS_API_KEY: ${{ secrets.REACT_APP_GOOGLE_MAPS_API_KEY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate deployment configuration
+        env:
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          REACT_APP_GOOGLE_MAPS_API_KEY: ${{ secrets.REACT_APP_GOOGLE_MAPS_API_KEY }}
+        shell: bash
+        run: |
+          test -n "$FIREBASE_PROJECT_ID" || (echo "Missing repository variable: FIREBASE_PROJECT_ID" && exit 1)
+          test -n "$FIREBASE_SERVICE_ACCOUNT" || (echo "Missing repository secret: FIREBASE_SERVICE_ACCOUNT" && exit 1)
+          test -n "$REACT_APP_GOOGLE_MAPS_API_KEY" || (echo "Missing repository secret: REACT_APP_GOOGLE_MAPS_API_KEY" && exit 1)
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: community-hero-frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: community-hero-frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: community-hero-frontend
+        run: npm run build
+
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: ${{ vars.FIREBASE_PROJECT_ID }}
+          channelId: live
+          entryPoint: .

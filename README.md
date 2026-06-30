@@ -128,6 +128,34 @@ RESOLUTION_IMAGE_MIN_SCORE=55
 RESOLUTION_IMAGE_REJECTION_CONFIDENCE=85
 ```
 
+## Duplicate And History Tuning
+
+Active duplicate detection and resolved historical recommendations are intentionally separate:
+
+- Active duplicate checks only compare against unresolved issues: `Pending Approval`, `Open`, `In Progress`, and `Pending Verification`.
+- Resolved issues are not used to block new reports. They are used as historical recommendations and community knowledge.
+- `MONGO_ISSUE_VECTOR_INDEX` is the MongoDB Atlas Vector Search index name for the `Issue.embedding` field. Keep `ENABLE_ATLAS_VECTOR_SEARCH=false` unless that Atlas index exists. When false, the backend uses the safe bounded cosine-similarity fallback.
+
+Conservative production/demo values:
+
+```env
+ENABLE_ATLAS_VECTOR_SEARCH=false
+MONGO_ISSUE_VECTOR_INDEX=issue_embedding_index
+DUPLICATE_SEMANTIC_THRESHOLD=0.86
+DUPLICATE_STRONG_SEMANTIC_THRESHOLD=0.94
+DUPLICATE_TEXT_THRESHOLD=0.42
+DUPLICATE_STRONG_TEXT_THRESHOLD=0.62
+DUPLICATE_DISTANCE_METERS=70
+DUPLICATE_CANDIDATE_DISTANCE_METERS=130
+DUPLICATE_IMAGE_CONFIDENCE=88
+DUPLICATE_SPATIAL_CANDIDATE_LIMIT=200
+HISTORICAL_TEXT_CANDIDATE_LIMIT=150
+HISTORICAL_TEXT_MIN_SIMILARITY=0.16
+HISTORICAL_SEMANTIC_MIN_SIMILARITY=0.68
+```
+
+Do not use very low duplicate values like `DUPLICATE_SEMANTIC_THRESHOLD=0.65`, `DUPLICATE_STRONG_SEMANTIC_THRESHOLD=0.75`, or `DUPLICATE_TEXT_THRESHOLD=0.20` for judging. Those are aggressive and can create false active duplicates. The history thresholds are intentionally lower because resolved issues should be surfaced as guidance, not used as blockers.
+
 ## Project Structure
 
 ```text
@@ -142,11 +170,26 @@ community-hero-backend/
   server.js
 
 community-hero-frontend/
+  public/
+    _redirects
   src/
     api/
     components/
+    utils/
     App.js
+  static.json
+  vercel.json
 ```
+
+## Latest Architecture
+
+- React SPA frontend with clean React Router paths, static-host rewrites, and a client-side fallback route.
+- Express API backend with JWT identity, CORS allowlists, health checks, and optional Render keep-alive.
+- MongoDB/Mongoose data layer for users, societies, issues, votes, notifications, analytics, history, and maintenance tasks.
+- Google Maps drives radius/polygon community setup and map visualization.
+- Google Gemini validates issue images, validates resolution proof, categorizes reports, and explains decisions.
+- Google embeddings power active duplicate detection and resolved historical solution retrieval.
+- Geofencing is enforced on the backend against the stored society radius or polygon; frontend labels are never trusted as authority.
 
 ## Backend Setup
 
@@ -197,6 +240,44 @@ For a Render backend deployment:
 
 If the hackathon final submission is evaluated strictly against the Google Cloud deployment requirement, deploy the public app on Google Cloud or clearly document any hybrid deployment choice in the project description.
 
+## Firebase Frontend Deployment
+
+The frontend is configured for Firebase Hosting with `firebase.json` at the repository root. The Firebase public directory is `community-hero-frontend/build`, and all frontend paths rewrite to `index.html` so refresh, direct links, and browser back/forward continue to work.
+
+Production frontend values currently point to the Render backend:
+
+```env
+REACT_APP_BACKEND_URL=https://community-hero-sfsj.onrender.com
+REACT_APP_API_BASE=https://community-hero-sfsj.onrender.com/api
+```
+
+For a manual Firebase deploy:
+
+```bash
+npx firebase-tools login
+copy .firebaserc.example .firebaserc
+# Edit .firebaserc and replace your-firebase-project-id with the real Firebase project ID.
+cd community-hero-frontend
+npm install
+npm run build
+cd ..
+npx firebase-tools deploy --only hosting
+```
+
+After Firebase gives the hosted URL, add that frontend origin to the Render backend `CORS_ORIGINS` value. Example:
+
+```env
+CORS_ORIGINS=https://your-project-id.web.app,https://your-project-id.firebaseapp.com
+```
+
+GitHub Actions deployment is configured in `.github/workflows/firebase-hosting-live.yml`. Add these repository settings before expecting the workflow to pass:
+
+- Repository variable `FIREBASE_PROJECT_ID`: your Firebase project ID.
+- Repository secret `FIREBASE_SERVICE_ACCOUNT`: Firebase service account JSON for Hosting deploys.
+- Repository secret `REACT_APP_GOOGLE_MAPS_API_KEY`: browser-restricted Google Maps key.
+
+The workflow builds only `community-hero-frontend` and deploys the built static app to Firebase Hosting on pushes to `main` or `master`, and can also be run manually from GitHub Actions.
+
 ## Frontend Setup
 
 ```bash
@@ -221,54 +302,49 @@ Default local URLs:
 - Backend: `http://localhost:5000`
 - Health check: `http://localhost:5000/health`
 
-## Demo Data
+## React SPA Routing In Production
 
-The backend includes a practical MongoDB seed script for testing the complete flow.
+Community Hero has app routes such as `/dashboard`, `/issues/:issueId`, and `/create-issue`. Static hosting must rewrite unknown frontend paths back to `index.html`; otherwise refresh, direct links, or browser back/forward can show a host-level 404.
+
+The frontend includes production fallback files:
+
+- Root `render.yaml` with a Render static-site rewrite route for Blueprint deployments.
+- `community-hero-frontend/public/_redirects` for Netlify-compatible static hosts.
+- `community-hero-frontend/vercel.json` for Vercel rewrites.
+- `community-hero-frontend/static.json` for static buildpack style hosts.
+- A React Router `*` route that sends unknown in-app paths back to dashboard/login.
+
+The app also uses `HashRouter`, so normal in-app navigation uses URLs like `/#/login`. This avoids host-level 404s even when a static host has not been configured perfectly.
+
+For an existing manually-created Render Static Site, also add this in the Render dashboard:
+
+```text
+Redirects/Rewrites:
+Source: /*
+Destination: /index.html
+Action: Rewrite
+```
+
+If your hosting provider has its own rewrite UI, configure:
+
+```text
+source: /*
+destination: /index.html
+status: 200
+```
+
+## Optional Local QA Seed
+
+The backend includes a seed script for local developer QA, but the recommended judge path is to create fresh accounts and a fresh community at the evaluator's own location.
 
 ```bash
 cd community-hero-backend
 npm run seed:demo
 ```
 
-The seed creates:
+The seed creates synthetic users, a community, active issues, resolved historical issues, duplicate examples, maintenance tasks, notifications, leaderboard entries, and community history. It is useful for developer regression testing, not required for judging.
 
-- One radius-based demo community with real GPS center support.
-- One admin.
-- Five approved residents.
-- One pending resident.
-- One resident for testing the join flow.
-- Active issues.
-- Resolved historical issues.
-- Duplicate-detection examples.
-- Maintenance tasks.
-- Notifications.
-- Leaderboard entries.
-- Community knowledge and history.
-
-The geofence QA script additionally creates and removes temporary polygon communities to verify drawn-border behavior.
-
-All seeded demo accounts use:
-
-```text
-Password: Demo@12345
-```
-
-Demo emails:
-
-```text
-admin@demo.communityhero.local
-resident1@demo.communityhero.local
-resident2@demo.communityhero.local
-resident3@demo.communityhero.local
-resident4@demo.communityhero.local
-resident5@demo.communityhero.local
-pending@demo.communityhero.local
-joinflow@demo.communityhero.local
-```
-
-The script prints the generated Society ID after seeding. Use that ID when testing resident join flow.
-
-Run the backend QA checks:
+Run the backend geofence QA checks:
 
 ```bash
 cd community-hero-backend
@@ -277,19 +353,150 @@ npm run check:geofence
 
 This verifies radius geofencing, polygon geofencing, authenticated join checks, login GPS behavior, admin approval safety, issue creation geofence rejection, admin resolution GPS requirements, and last-known-location checks for routine issue actions.
 
-## Evaluator Fast Path
+## From-Scratch Evaluation Walkthrough
 
-If hackathon advisors do not want to spend time creating communities, residents, issues, maintenance tasks, and history manually, they can use the seeded demo data directly.
+This is the preferred judge flow. It does not require any pre-created account, private credential, or fixed physical location.
 
-Fastest review path:
+Before starting:
 
-1. Run `npm run seed:demo` once on the backend, or use the already seeded deployed database.
-2. Log in as `admin@demo.communityhero.local` with password `Demo@12345` to inspect the admin dashboard, community map, active issues, approvals, analytics, maintenance, leaderboard, notifications, and history.
-3. For approved resident flows, log in with `resident1@demo.communityhero.local` and password `Demo@12345`.
-4. Resident login requires GPS inside the seeded community. If the evaluator is remote, use browser location override/devtools sensors with the center printed by the seed script.
-5. To test a new resident joining, log in as `joinflow@demo.communityhero.local`, paste the Society ID visible in the admin dashboard, verify location with the same seeded center, and request access.
+1. Open the deployed frontend in Chrome or Edge.
+2. Allow browser location permission when prompted.
+3. Stay physically inside the location that will represent the test community.
+4. If testing from a desk or remote machine, use browser DevTools Sensors to set a consistent latitude/longitude. Use that same location for admin setup, resident join, login, and issue creation.
+5. Keep two browser profiles/windows available: one for admin, one for residents.
 
-Seeded data includes active duplicate examples, resolved historical issues, pending approval, pending verification, multi-helper resolution teams, maintenance tasks, notifications, analytics, community knowledge, and leaderboard entries.
+### 1. Create Admin And Community
+
+1. Open `/register`.
+2. Register a new admin account with any evaluator-controlled email and password.
+3. After registration, open the dashboard and click Create Community.
+4. Click Lock Current Location and wait until GPS is locked.
+5. Choose Radius mode for the fastest test. Use `150` to `250` meters as a practical radius.
+6. Enter a society/community name and create the community.
+7. Copy the generated Society ID from the admin dashboard.
+8. Open the Community Map page and confirm the radius circle appears around the saved community center.
+
+Polygon geofence test:
+
+1. Create a second admin account only if you want to test drawn borders separately.
+2. On Admin Setup, choose Draw Border.
+3. Lock current location first.
+4. Click at least three points around the current marker.
+5. Create the community.
+6. Confirm the map shows the polygon instead of only a radius circle.
+
+### 2. Register Resident And Request Access
+
+1. In a separate browser profile/window, open `/register`.
+2. Register a resident account.
+3. The resident starts without a society.
+4. On the resident dashboard, paste the Society ID copied from the admin dashboard.
+5. Click Verify Location.
+6. The request should verify only if the current GPS is inside the community radius or polygon.
+7. Click Request Join Access.
+8. The resident should now show pending approval.
+
+Negative geofence test:
+
+1. Use DevTools Sensors to move the resident outside the radius or polygon.
+2. Try Verify Location again with the same Society ID.
+3. The backend should reject the request as outside the community geofence.
+4. Move the sensor back inside before continuing.
+
+### 3. Approve Resident
+
+1. Return to the admin window.
+2. Open the dashboard approval queue or Pending Residents page.
+3. Confirm the resident appears as pending.
+4. Approve the resident.
+5. The resident should become an approved community member.
+
+### 4. Login Geofence Check
+
+1. Log out as the resident.
+2. Log in again with the resident email/password.
+3. The app first checks email/password, then requests GPS only for approved community residents.
+4. With GPS inside the community, login should succeed.
+5. With GPS outside the community, login should fail.
+
+Admin note: admin login is not forced through geofence every time. Admin location is required during community setup and when an admin directly uploads a fix.
+
+### 5. Create Issue
+
+1. Log in as the approved resident.
+2. Open Create Issue.
+3. Upload or capture a JPG/JPEG/PNG image that clearly shows a practical issue.
+4. Enter a title and description.
+5. Click Verify GPS and wait for the map marker to lock.
+6. Submit the issue.
+7. Gemini should classify the image and text.
+8. The issue should enter the approval workflow unless the AI confidently rejects the image as spam/unrelated/no visible issue.
+
+Negative image test:
+
+1. Upload an unrelated image.
+2. If Gemini is highly confident the image is invalid, the backend should reject it before voting.
+3. If Gemini is uncertain, the issue should continue to community verification instead of being hard-blocked.
+
+### 6. Active Duplicate Test
+
+1. While the first issue is still active, create a second issue with very similar title, description, image type, and nearby GPS.
+2. The duplicate detector should compare active issues only.
+3. If the match is strong enough, the new report should merge into or point to the existing active issue.
+4. The creator should be directed to the existing issue rather than creating noisy duplicate work.
+
+### 7. Historical Similarity Test
+
+1. Resolve the original issue through the resolution flow below.
+2. After it is resolved, create a future similar issue.
+3. The resolved issue should not block the new report as an active duplicate.
+4. Instead, the resolved issue should appear as a historical recommendation or community knowledge item.
+
+### 8. Voting And Fairness
+
+1. Register at least two more resident accounts and request/approve them using the same Society ID.
+2. Confirm the issue creator cannot vote to approve their own issue.
+3. Use another approved resident to vote for issue approval.
+4. Confirm a solver cannot vote to verify their own resolution.
+5. Use other residents to verify the final resolution.
+
+### 9. Claim, Help, And Multi-Solver Flow
+
+1. Open an approved active issue as a resident who did not create it.
+2. Claim the issue.
+3. Add a resolution/help note.
+4. Request more community help if extra people are needed.
+5. Join the same issue as another resident helper.
+6. Confirm the issue allows multiple helpers while retaining one primary solver.
+
+### 10. Resolution Flow
+
+1. As the solver or admin, upload a resolved/fixed image.
+2. Describe what was fixed in the resolution summary.
+3. If the image clearly shows the issue still exists, Gemini should reject the resolution before voting.
+4. If Gemini is uncertain, the resolution should move to community verification.
+5. Other eligible residents vote on the resolution.
+6. After enough verification, the issue should become Resolved.
+7. Resolved issues should leave active issue lists and appear in history/knowledge.
+
+### 11. Admin Direct Fix
+
+1. Log in as admin.
+2. Open an active issue.
+3. If the admin is physically inside the community geofence, upload a fix and resolution summary.
+4. The fix should follow the same AI validation and community verification safety gates.
+
+### 12. Dashboard And Support Pages
+
+Verify these pages after creating data:
+
+- Dashboard cards update for role, society, members, points, notifications, history, and knowledge.
+- Community Map shows the saved radius or polygon.
+- Active Issues excludes resolved issues.
+- Issue Details shows AI category, semantic/image similarity fields, comments, helpers, votes, and resolution data.
+- Maintenance Board shows scheduled or generated tasks.
+- Leaderboard and achievements update after reporting, claiming, resolving, and voting.
+- Notifications reflect duplicate merges, approvals, claims, help requests, and resolutions.
 
 ## Hackathon Submission Checklist
 
@@ -303,11 +510,11 @@ The Vibe2Ship guidelines require:
 
 For a stronger evaluation:
 
-- Make the first demo path use seeded data so judges see value immediately.
+- Make the first demo path the from-scratch walkthrough so judges can test at their own physical location.
 - Show Google AI usage clearly: Gemini Vision/text reasoning, Gemini embeddings, and Google Maps geofencing.
 - Demonstrate agentic depth through duplicate prevention, historical recommendations, proactive maintenance/weather intelligence, and resolution verification.
 - Keep the deployed app stable during the full evaluation period.
-- Include demo credentials and GPS override coordinates in the Google Doc and README.
+- Include the from-scratch test steps, required environment setup, and Google Maps browser-location notes in the Google Doc and README.
 
 ## Main Flows To Verify
 
